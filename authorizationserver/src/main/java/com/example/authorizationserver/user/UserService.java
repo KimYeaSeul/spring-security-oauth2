@@ -2,6 +2,8 @@ package com.example.authorizationserver.user;
 
 import java.util.Optional;
 
+import javax.transaction.Transactional;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +25,7 @@ public class UserService {
   private final OauthClientDetailsRepository clientRepository;
   private final PasswordEncoder passwordEncoder;
 
+  @Transactional
   public User registerUser(String username, String password) {
     User user = new User();
     user.setUsername(username);
@@ -32,6 +35,7 @@ public class UserService {
     return userRepository.save(user);
   }
 
+  @Transactional
   public ResponseEntity<String> registerClient(String clientId, String clientSecret, String authorizedGrantTypes, String scopes) {
     Optional<OauthClientDetails> opClient = clientRepository.findById(clientId);
     if(opClient.isPresent()){
@@ -46,6 +50,7 @@ public class UserService {
                                           .scope(scopes)
                                           .role("ROLE_CLIENT")
                                           .build();
+      clientRepository.save(client);
       log.info("client 생성 완료 : {}", client.toString());
       return new ResponseEntity<>(" 유저 생성 완료 : "+ clientId, HttpStatus.OK);
     }

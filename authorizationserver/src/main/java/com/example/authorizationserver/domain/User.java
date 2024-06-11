@@ -1,5 +1,6 @@
 package com.example.authorizationserver.domain;
 
+import java.io.Serializable;
 import java.util.Set;
 
 import javax.persistence.Column;
@@ -16,7 +17,7 @@ import lombok.Data;
 
 @Data
 @Entity
-public class User {
+public class User implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name="user_id")

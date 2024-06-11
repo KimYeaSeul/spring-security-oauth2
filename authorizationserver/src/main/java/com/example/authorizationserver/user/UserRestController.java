@@ -2,8 +2,6 @@ package com.example.authorizationserver.user;
 
 import java.util.Map;
 
-import javax.transaction.Transactional;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +23,6 @@ public class UserRestController {
   public String test(){
     return "Welcome to test page";
   }
-  @Transactional
   @PostMapping("/oauth2/client/join")
   public ResponseEntity<String> registerClient(@RequestParam Map<String,String> client){
     log.info("[registerClient] {}",client.get("client_id"));
@@ -40,10 +37,11 @@ public class UserRestController {
   // @PreAuthorize("hasAuthority('ROLE_CLIENT')") // 특정 권한을 요구
   @PostMapping("/oauth2/user/join")
   public User registerUser(@RequestParam String username, @RequestParam String password, Authentication authentication) {
-    log.info("[registerUser] ");
+    log.info("[registerUser] {}", username);
     // 인증된 클라이언트 확인 (Optional)
-    // String clientId = authentication.getName();
-    // System.out.println("Authenticated Client ID: " + clientId);
+    if(authentication != null && authentication.isAuthenticated()){
+      log.info("인증 Client Id = {}", authentication.getName());
+    }
       return userService.registerUser(username, password);
   }
 }

@@ -32,8 +32,8 @@ public class JwtTokenProvider {
 
   private SecretKey secretkey;
   private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30L; // 30분
-  private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60L * 24 * 7; // 1주
-  private static final String KEY_ROLE = "role";
+  // private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60L * 24 * 7; // 1주
+  // private static final String KEY_ROLE = "role";
 
   public JwtTokenProvider(@Value("${jwt.secret}") String key){
     this.secretkey = Keys.hmacShaKeyFor(key.getBytes());
@@ -65,7 +65,8 @@ public class JwtTokenProvider {
     String authorities = authentication.getAuthorities().stream()
                       .map(GrantedAuthority::getAuthority)
                       .collect(Collectors.joining(","));
-    
+                      // TODO : grant_type 에 따른 응답값을 보고 오류를 수정하시오!!
+    log.info("authentication.getPrincipal() : {}",authentication.getPrincipal().toString());
     PrincipalDetails userDetails = (PrincipalDetails)authentication.getPrincipal();
     Long userId = userDetails.getUser().getId();
     String username = userDetails.getUsername();
@@ -111,6 +112,7 @@ public boolean validateToken(String token) throws Exception {
   }
 
   Claims claims = parseClaims(token);
+  log.info("=== subject :{} ========", claims.getSubject());
   return claims.getExpiration().after(new Date());
 }
 
@@ -157,15 +159,19 @@ public boolean validateToken(String token) throws Exception {
    * @return Claims
    * @throws Exception 
    */
-  private Claims parseClaims(String accessToken) throws Exception{
+  private Claims parseClaims(String accessToken){
+    log.info("parseClaims : {} " ,accessToken); // Base64(common:1234) = Basic Y29tbW9uOjEyMzQ=
     try{
       return Jwts.parser().verifyWith(secretkey).build().parseSignedClaims(accessToken).getPayload();
     } catch (ExpiredJwtException e){
       return e.getClaims();
     } catch (MalformedJwtException e){
-      throw new Exception("InValid Access Token");
+      log.info("MalformedJwtException : InValid Access Token");
+      // throw new Exception("InValid Access Token");
     } catch (SecurityException e){
-      throw new Exception("InValid JWT Signature");
+      log.info("SecurityException : InValid Access Token");
+      // throw new Exception("InValid JWT Signature");
     }
+    return null;
   }
 }

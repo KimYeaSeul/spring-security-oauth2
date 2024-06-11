@@ -7,35 +7,31 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /* 
     인증 처리를 위한 핵심 컴포넌트
   */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CustomAuthenticationProvider implements AuthenticationProvider {
 
   private final CustomUserDetailsService userDetailsService;
-  private final PasswordEncoder passwordEncoder;
 
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
     String username = authentication.getName();
-    System.out.println("프로바이더 입니다.!!! 유저정보찾기   "+username);
+        log.debug("DaoAuthenticationProvider  대신!! 유저 정보 : {}", username);
 
         String password = (String) authentication.getCredentials();
-        String encPw = passwordEncoder.encode(password);
         UserDetails user = userDetailsService.loadUserByUsername(username);
 
-        System.out.println("어떤 유저가 들어온걸까요 ? "+user.toString());
-        
-        System.out.println("tablePassword = "+user.getPassword());
-        System.out.println("getPassword = "+password);
-        System.out.println("getPassword = "+encPw);
+        log.info("어떤 유저가 들어온걸까요 ? {}"+user.toString());
+
         if (user == null || !BCrypt.checkpw( password, user.getPassword())) {
             throw new UsernameNotFoundException("CustomAuthenticationProvider Invalid username or password");
         }
