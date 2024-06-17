@@ -1,18 +1,69 @@
 package com.example.authorizationserver.filter;
 
-// @RequiredArgsConstructor
-// @Slf4j
-// @Component
-public class JwtAuthFilter {
-// extends OncePerRequestFilter {
+import java.io.IOException;
 
-  // private final JwtTokenProvider jwtUtil;
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.example.authorizationserver.config.JwtTokenProvider;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@RequiredArgsConstructor
+@Slf4j
+@Component
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+  // 여기는 어떤 인증 형태든 무조건 돌아
+  private final JwtTokenProvider jwtTokenProvider;
+  private final JdbcTokenStore tokenStore;
+  // private final TokenUtil tokenUtil;
   // private final UserRepository userRepository;
 
 
-  // @Override
-  // protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-  //     log.info("필터 돌아요~");
+  @Override
+  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+      log.info(" JwtAuthFilter 필터 돌아요~");
+      String token = jwtTokenProvider.resolveToken(request);
+
+// jwt 인지 확인해서 토큰 형태에 따라 validation 함수 돌려가지고오오오오오오오오오오해보자고오오오오오오오
+
+      if(token != null){
+        if( jwtTokenProvider.isJwtToken(token) && jwtTokenProvider.validateToken(token) ){
+          Authentication auth = jwtTokenProvider.getAuthentication(token);
+          SecurityContextHolder.getContext().setAuthentication(auth);
+        }
+        else{
+          OAuth2AccessToken auth = tokenStore.readAccessToken(token);
+          log.info("안녕 난 client credentials 타입이야 토큰 타입은 {} 이지!", auth.getTokenType());
+          log.info("안녕 난 client credentials 타입이야 토큰 getExpiresIn은 {} 지!", auth.getExpiresIn());
+          log.info("안녕 난 client credentials 타입이야 토큰 isExpired는 {} 지!", auth.isExpired());
+          log.info("안녕 난 client credentials 타입이야 토큰은 {} 지!", auth.getValue());
+          // expired 를 확인해서 setAuytnehtication 할 필요가 없지 않나..?
+          // 이미 set 되어있는거를 가져온거 아닌가?..
+        }
+      }
+      // try {
+      //     if( token != null && jwtTokenProvider.validateToken(token) ){
+      //       Authentication auth = jwtTokenProvider.getAuthentication(token);
+      //       SecurityContextHolder.getContext().setAuthentication(auth);
+      //     }
+      // } catch (Exception e) {
+      //   // TODO Auto-generated catch block
+      //   log.info("무슨 에러 일까나");
+      //   e.printStackTrace();
+      // }
+      filterChain.doFilter(request, response);
   //     // request Header에서 AccessToken을 가져온다.
   //     String atc = request.getHeader("Authorization");
   //     log.info("Authorication = {}", atc);
@@ -52,12 +103,5 @@ public class JwtAuthFilter {
   //     }
 
   //     filterChain.doFilter(request, response);
-  // }
-
-
-
-  // public Authentication getAuthentication(User member) {
-  //   return new UsernamePasswordAuthenticationToken(member, "", List.of(new SimpleGrantedAuthority(member.getRoles().toString())));
-  // }
-
+  }
 }

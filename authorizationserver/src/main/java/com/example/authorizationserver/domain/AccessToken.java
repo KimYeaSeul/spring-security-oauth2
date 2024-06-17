@@ -19,18 +19,18 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "oauth_refresh_token")
-public class RefreshToken implements Serializable {
+@Table(name = "oauth_access_token")
+public class AccessToken implements Serializable {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  @Column(name="token_id")
-  public Long tokenId;
-  public String token;
-  @Column(name="authentication")
-  public String authentication;
-
-  public void updateAccessToken(String accessToken) {
-    this.token = accessToken;
-  }
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name="token_id")
+    public Long tokenId;
+    public String token;
+    @Column(name="authentication_id")
+    public String authId;
+    public String userName;
+    public String clientId;
+    public String authentication;
+    public String refreshToken;
 }

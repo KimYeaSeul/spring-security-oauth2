@@ -9,8 +9,11 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.example.authorizationserver.filter.JwtAuthFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,9 +23,11 @@ import lombok.RequiredArgsConstructor;
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter{
     // private final JwtAuthFilter jwtAuthFilter;
     // private final JwtExceptionFilter jwtExceptionFilter;
-    private final CustomAuthenticationProvider customProvider;
+    // private final CustomAuthenticationProvider customProvider;
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTokenStore tokenStore;
+    private final JwtTokenProvider jwtTokenProvider;
 
     protected void configure(HttpSecurity http) throws Exception {
         http
@@ -30,13 +35,16 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter{
             // .addFilterBefore(jwtExceptionFilter, JwtAuthFilter.class)
             .csrf(csrf -> csrf.disable())
                 .authorizeRequests((authz) -> authz
-                                .antMatchers("/oauth2/user/join").hasRole("CLIENT")
-                                .anyRequest().permitAll()
+                                .antMatchers("/oauth2/client/join").permitAll()
+                                .anyRequest().authenticated()
+                                // .antMatchers("/oauth2/user/join").hasRole("CLIENT")
                 )
-                .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션관리정책 : 비활성화
+                // .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션관리정책 : 비활성화
                 // .authenticationProvider(customProvider)
                 .formLogin(login -> login.disable()) // 폼로그인 비활성화
-                .httpBasic(withDefaults()); // 기본 인증 사용
+                .httpBasic(withDefaults())
+                .addFilterBefore(new JwtAuthFilter(jwtTokenProvider, tokenStore), UsernamePasswordAuthenticationFilter.class)
+                ; // 기본 인증 사용
     }
     
     @Bean

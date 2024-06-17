@@ -1,18 +1,21 @@
 package com.example.authorizationserver.config;
 
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -34,10 +37,17 @@ public class JwtTokenProvider {
   private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30L; // 30분
   // private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60L * 24 * 7; // 1주
   // private static final String KEY_ROLE = "role";
+  
+  // JWT 형식 검사 정규식 패턴
+  private static final Pattern JWT_PATTERN = Pattern.compile("^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$");
 
-  public JwtTokenProvider(@Value("${jwt.secret}") String key){
+  private final CustomUserDetailsService userDetailsService;
+
+  public JwtTokenProvider(@Value("${jwt.secret}") String key, CustomUserDetailsService userDetailsService){
     this.secretkey = Keys.hmacShaKeyFor(key.getBytes());
+    this.userDetailsService = userDetailsService;
   }
+
 
   public TokenInfoDto generateAccessToken(Authentication authentication) {
     String accessToken = generateToken(authentication);
@@ -61,26 +71,30 @@ public class JwtTokenProvider {
    * @return TokenInfo
    */
   public String generateToken(Authentication authentication){
+    
+  log.info("========== generateToken  ==========");
     // 권한 가져오기
     String authorities = authentication.getAuthorities().stream()
                       .map(GrantedAuthority::getAuthority)
                       .collect(Collectors.joining(","));
                       // TODO : grant_type 에 따른 응답값을 보고 오류를 수정하시오!!
+
     log.info("authentication.getPrincipal() : {}",authentication.getPrincipal().toString());
     PrincipalDetails userDetails = (PrincipalDetails)authentication.getPrincipal();
     Long userId = userDetails.getUser().getId();
     String username = userDetails.getUsername();
-
-    Date now = new Date();
-
+    
     // Access Token 생성
+    Date now = new Date();
     Date accessTokenExpiresIn = new Date(now.getTime() + ACCESS_TOKEN_EXPIRE_TIME);
+
     return Jwts.builder()
               .subject(authentication.getName())
               .issuedAt(now)
               .claim("userId", userId)
               .claim("username", username)
               .claim("auth", authorities)
+              .claim("isthisright", "right")
               .expiration(accessTokenExpiresIn)
               .signWith(secretkey)
               .compact();
@@ -106,34 +120,70 @@ public class JwtTokenProvider {
   //   return null;
   // } 
 
-public boolean validateToken(String token) throws Exception {
+  public String resolveToken(HttpServletRequest request) {
+    
+  log.info("========== resolveToken  ==========");
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+public boolean validateToken(String token){
+  log.info("========== validateToken  ==========");
   if (!StringUtils.hasText(token)) {
       return false;
   }
-
+  if(isJwtToken(token)){}
   Claims claims = parseClaims(token);
-  log.info("=== subject :{} ========", claims.getSubject());
+  log.info("=== validateToken subject :{} ========", claims.getSubject());
   return claims.getExpiration().after(new Date());
 }
 
+public boolean isJwtToken(String token) {
+  // JWT 형식인지 확인
+  if (!JWT_PATTERN.matcher(token).matches()) {
+      return false;
+  }
 
+  // 각 부분을 분할
+  String[] parts = token.split("\\.");
+  if (parts.length != 3) {
+      return false;
+  }
+
+  // Base64로 디코딩 시도
+  try {
+      Base64.getUrlDecoder().decode(parts[0]);
+      Base64.getUrlDecoder().decode(parts[1]);
+      // Signature 부분은 디코딩하지 않음
+  } catch (IllegalArgumentException e) {
+      return false;
+  }
+
+  return true;
+}
   /**
    * [JWT 복호화]
    * JWT를 복화하하여 토큰에 들어있는 정보를 반환
    * @param String accessToken
    * @return Authentication
    */
-  public Authentication getAuthentication(String accessToken) throws Exception{
+  public Authentication getAuthentication(String accessToken) {
+    log.info("========== getAuthentication  ==========");
     // 토큰 복호화
     Claims claims = parseClaims(accessToken);
     if(claims.get("auth") == null){
       throw new RuntimeException("권한 정보가 없는 토큰입니다.");
     }
-    List<SimpleGrantedAuthority> authorities = getAuthorities(claims);
+    // List<SimpleGrantedAuthority> authorities = getAuthorities(claims);
 
     // 2. security의 User 객체 생성
-    User principal = new User(claims.getSubject(), "", authorities);
-    return new UsernamePasswordAuthenticationToken(principal, accessToken, authorities);
+    UserDetails principal = userDetailsService.loadUserByUsername(getUid(accessToken));
+    log.info("principal = {} " ,principal.toString());
+    log.info("claims.get(auth) = {} ",claims.get("auth"));
+    return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
   }
 
   /**
@@ -164,6 +214,7 @@ public boolean validateToken(String token) throws Exception {
     try{
       return Jwts.parser().verifyWith(secretkey).build().parseSignedClaims(accessToken).getPayload();
     } catch (ExpiredJwtException e){
+      log.info("ExpiredJwtException : Expired Access Token");
       return e.getClaims();
     } catch (MalformedJwtException e){
       log.info("MalformedJwtException : InValid Access Token");

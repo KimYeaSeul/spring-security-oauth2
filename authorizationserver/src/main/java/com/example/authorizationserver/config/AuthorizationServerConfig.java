@@ -17,7 +17,6 @@ import org.springframework.security.oauth2.config.annotation.web.configurers.Aut
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
 import org.springframework.security.oauth2.provider.token.TokenEnhancer;
-import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
@@ -34,11 +33,15 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
     // 2. 내가 원하는 방식대로 토큰이 나오게 적용하기?
     // 3. 유저 회원가입 시 토큰 검증
 
-    // private final JwtTokenProvider jwtTokenProvider;
+    private final JwtTokenProvider jwtTokenProvider;
 	private final AuthenticationManager authenticationManager;
-    private final DataSource dataSource;
     private final CustomClientDetailsService clientDetailsService;
+    private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    private final DefaultTokenServices jdbcTokenServices;
+    private final JdbcTokenStore jdbcTokenStore;
+    private final JwtTokenStore jwtTokenStore;
+    private final DataSource dataSource;
 
     // @Override
     // public void configure(AuthorizationServerEndpointsConfigurer endpoints) {
@@ -48,35 +51,26 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
     @Override
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
         // TokenEnhancerChain tokenEnhancerChain = new TokenEnhancerChain();
-        // tokenEnhancerChain.setTokenEnhancers(Arrays.asList(tokenEnhancer(), accessTokenConverter()));
+        // tokenEnhancerChain.setTokenEnhancers(Arrays.asList(jwtTokenEnhancer(), accessTokenConverter()));
 
+        CustomTokenService tokenServices = new CustomTokenService(jdbcTokenStore, jwtTokenStore);
+
+        tokenServices.setTokenEnhancer(jwtTokenEnhancer());
+        
         endpoints
             .authenticationManager(authenticationManager)
-            .tokenServices(jwtTokenServices()) // 클라이언트 자격 증명 방식의 엔드포인트 설정
-            .tokenStore(jwtTokenStore()) // 패스워드 방식의 엔드포인트 설정
-            .tokenEnhancer(jwtTokenEnhancer());
-            // .accessTokenConverter(accessTokenConverter());
+            .tokenServices(tokenServices);
+            // .tokenStore(jdbcTokenStore)
+            // .accessTokenConverter(accessTokenConverter())
+            // .tokenEnhancer(tokenEnhancerChain)
+            // .tokenStore
+            // .tokenServices(jdbcTokenServices)
+            // .userDetailsService(userDetailsService)
+            // .tokenStore(jdbcTokenStore());
+            // .tokenServices(jwtTokenServices()) // 클라이언트 자격 증명 방식의 엔드포인트 설정
+            // .tokenStore(jwtTokenStore()) // 패스워드 방식의 엔드포인트 설정
     }
 
-    // JWT 토큰 저장
-    @Bean
-    TokenStore jwtTokenStore() {
-        return new JwtTokenStore(accessTokenConverter());
-    }
-
-    // 기본 JDBC 토큰 저장소
-    @Bean
-    TokenStore jdbcTokenStore() {
-        return new JdbcTokenStore(dataSource);        
-    }
-    
-    // JWT Access token 변환기
-    @Bean
-    JwtAccessTokenConverter accessTokenConverter() {
-        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-        converter.setSigningKey("signing-key");
-        return converter;
-    }
 
     @Bean
     TokenEnhancer jwtTokenEnhancer() {
@@ -84,7 +78,14 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
         return new JwtAccessTokenConverter() {
             @Override
             public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
-                ((DefaultOAuth2AccessToken) accessToken).setAdditionalInformation(Collections.singletonMap("customInfo", "someValue"));
+                System.out.println("자자자ㅏ tokenenhance 입니다! "+ authentication.getOAuth2Request().getGrantType());
+                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
+                    
+                System.out.println("패스워드 방식이군요!");
+                    String jwtToken = jwtTokenProvider.generateToken(authentication);
+                    ((DefaultOAuth2AccessToken) accessToken).setAdditionalInformation(Collections.singletonMap("customInfo", "someValue"));
+                    ((DefaultOAuth2AccessToken) accessToken).setValue(jwtToken);
+                }
                 return accessToken;
             }
         };
@@ -114,22 +115,14 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
     //     };
     // }
 
-    // 기본 토큰 서비스 (클라이언트 자격 증명용)
-    @Bean
-    DefaultTokenServices jdbcTokenServices() {
-        DefaultTokenServices tokenServices = new DefaultTokenServices();
-        tokenServices.setTokenStore(jdbcTokenStore());
-        return tokenServices;
-    }
-
     // JWT 토큰 서비스 (패스워드 방식용)
-    @Bean
-    DefaultTokenServices jwtTokenServices() {
-        DefaultTokenServices tokenServices = new DefaultTokenServices();
-        tokenServices.setTokenStore(jwtTokenStore());
-        tokenServices.setTokenEnhancer(jwtTokenEnhancer());
-        return tokenServices;
-    }
+    // @Bean
+    // DefaultTokenServices jwtTokenServices() {
+    //     DefaultTokenServices tokenServices = new DefaultTokenServices();
+    //     tokenServices.setTokenStore(jwtTokenStore());
+    //     tokenServices.setTokenEnhancer(jwtTokenEnhancer());
+    //     return tokenServices;
+    // }
 
     @Override
     public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {

@@ -13,9 +13,8 @@ public class RefreshTokenService {
   private final RefreshTokenRepository refreshTokenRepository;
 
   @Transactional
-  public void saveTokenInfo(String email, String refreshToken, String accessToken){
-    RefreshToken token = RefreshToken.builder().email(email).refreshToken(refreshToken).accessToken(accessToken).build();
-    refreshTokenRepository.save(token);
+  public void saveTokenInfo(){
+    
   }
 
   @Transactional

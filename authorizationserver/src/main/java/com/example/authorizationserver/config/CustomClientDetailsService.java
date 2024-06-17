@@ -9,8 +9,8 @@ import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.stereotype.Service;
 
-import com.example.authorizationserver.domain.OauthClientDetails;
-import com.example.authorizationserver.domain.OauthClientDetailsRepository;
+import com.example.authorizationserver.domain.Client;
+import com.example.authorizationserver.domain.ClientRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -18,16 +18,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CustomClientDetailsService implements ClientDetailsService {
 
-  private final OauthClientDetailsRepository clientRepository;
+  private final ClientRepository clientRepository;
 
   @Override
   public ClientDetails loadClientByClientId(String clientId) {
     System.out.println("클라이언트 디텡틸즈 들어왔다");
-      Optional<OauthClientDetails> opClient = clientRepository.findById(clientId);
+      Optional<Client> opClient = clientRepository.findById(clientId);
       if (opClient.isEmpty()) {
           throw new UsernameNotFoundException("loadClientByClientId  Client not found!!!!!!!!!");
       }
-      OauthClientDetails client = opClient.get();
+      Client client = opClient.get();
       BaseClientDetails clientDetails = new BaseClientDetails();
       clientDetails.setClientId(client.getClient_id());
       clientDetails.setClientSecret(client.getClient_secret());
