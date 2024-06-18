@@ -23,12 +23,10 @@ import lombok.NoArgsConstructor;
 public class AccessToken implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name="token_id")
-    public Long tokenId;
-    public String token;
     @Column(name="authentication_id")
     public String authId;
+    public String tokenId;
+    public String token;
     public String userName;
     public String clientId;
     public String authentication;

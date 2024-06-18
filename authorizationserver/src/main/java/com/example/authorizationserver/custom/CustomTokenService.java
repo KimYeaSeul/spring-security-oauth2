@@ -1,4 +1,4 @@
-package com.example.authorizationserver.config;
+package com.example.authorizationserver.custom;
 
 import org.jboss.logging.Logger;
 import org.springframework.security.core.AuthenticationException;
@@ -15,15 +15,15 @@ public class CustomTokenService extends DefaultTokenServices {
     
   private final JdbcTokenStore jdbcTokenStore;
   private final JwtTokenStore jwtTokenStore;
-  private Logger log = Logger.getLogger(CustomTokenService.class);
+  private final Logger log = Logger.getLogger(CustomTokenService.class);
 
   @Override
   public OAuth2AccessToken createAccessToken(OAuth2Authentication authentication) throws AuthenticationException {
       if ("client_credentials".equals(authentication.getOAuth2Request().getGrantType())) {
-        log.debug("클라이언트크레덴셜이다!!!!!!!!!");
+        log.info("클라이언트크레덴셜이다!!!!!!!!!");
           this.setTokenStore(jdbcTokenStore);
       } else if ("password".equals(authentication.getOAuth2Request().getGrantType())) {
-        log.debug("패스워드다ㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏ");
+        log.info("패스워드다ㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏㅏ");
           this.setTokenStore(jwtTokenStore);
       } else {
           this.setTokenStore(jdbcTokenStore); // Default to JdbcTokenStore

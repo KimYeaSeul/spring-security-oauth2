@@ -1,8 +1,9 @@
-package com.example.authorizationserver.config;
+package com.example.authorizationserver.custom;
 
 import java.util.Arrays;
 import java.util.Optional;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
@@ -14,6 +15,7 @@ import com.example.authorizationserver.domain.ClientRepository;
 
 import lombok.RequiredArgsConstructor;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomClientDetailsService implements ClientDetailsService {
@@ -22,7 +24,7 @@ public class CustomClientDetailsService implements ClientDetailsService {
 
   @Override
   public ClientDetails loadClientByClientId(String clientId) {
-    System.out.println("클라이언트 디텡틸즈 들어왔다");
+      log.info("클라이언트 디텡틸즈 들어왔다");
       Optional<Client> opClient = clientRepository.findById(clientId);
       if (opClient.isEmpty()) {
           throw new UsernameNotFoundException("loadClientByClientId  Client not found!!!!!!!!!");

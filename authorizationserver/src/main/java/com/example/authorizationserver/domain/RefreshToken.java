@@ -23,12 +23,10 @@ import lombok.NoArgsConstructor;
 public class RefreshToken implements Serializable {
 
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  @Column(name="token_id")
-  public Long tokenId;
+  public String tokenId;
   public String token;
   @Column(name="authentication")
-  public String authentication;
+  public String auth;
 
   public void updateAccessToken(String accessToken) {
     this.token = accessToken;

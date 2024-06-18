@@ -1,18 +1,20 @@
-package com.example.authorizationserver.domain;
+package com.example.authorizationserver.custom;
 
 import java.util.ArrayList;
 import java.util.Collection;
 
+import com.example.authorizationserver.domain.User;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import lombok.Data;
-
+@Slf4j
 @Data
-public class PrincipalDetails implements UserDetails{
+public class CustomUserDetails implements UserDetails{
 
   public User user;
-  public PrincipalDetails(User user){
+  public CustomUserDetails(User user){
     this.user = user;
   }
 
@@ -22,7 +24,7 @@ public class PrincipalDetails implements UserDetails{
         collection.add(new GrantedAuthority() {
             @Override
             public String getAuthority() {
-                System.out.println("권환 이리 와보슈 "+ user.getRole());
+              log.info("권환 이리 와보슈 "+ user.getRole());
                 return user.getRole();
             }
         });

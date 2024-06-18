@@ -1,4 +1,4 @@
-package com.example.authorizationserver.user;
+package com.example.authorizationserver.domain;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.authorizationserver.config.CustomException;
+import com.example.authorizationserver.custom.exception.CustomException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,11 +36,12 @@ public class UserRestController {
                                                 @RequestParam String client_secret,
                                                 @RequestHeader("Authorization") String code )
   {
-    log.debug("[registerClient] {}, code = {}",client_id, code);
+//    log.debug("[registerClient] {}, code = {}",client_id, code);
     if(code != null && code.equals(secretKey)){
       String id = userService.registerClient(client_id, client_secret);
       return new ResponseEntity<>("클라이언트 생성 완료 : "+ id, HttpStatus.OK);
     }
+//    return new ResponseEntity<>("클라이언트 생성 완료 : ", HttpStatus.OK);
     throw new CustomException(HttpStatus.BAD_REQUEST, "클라이언트 생성 실패 - Code Error");
   }
 
@@ -50,9 +51,9 @@ public class UserRestController {
                                               @RequestParam String password,
                                               Authentication authentication ) 
   {
-    log.debug("[registerUser] {}", username);
+    log.info("[registerUser] {}", username);
     if(authentication != null && authentication.isAuthenticated()){
-      log.debug("Client = {}", authentication.getName());
+      log.info("Client = {}", authentication.getName());
       String id = userService.registerUser(username, password);
       return new ResponseEntity<>("유저 생성 완료 : "+ id, HttpStatus.OK);
     }

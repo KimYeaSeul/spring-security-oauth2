@@ -1,4 +1,4 @@
-package com.example.authorizationserver.user;
+package com.example.authorizationserver.domain;
 
 import java.util.Optional;
 
@@ -8,10 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.example.authorizationserver.config.CustomException;
-import com.example.authorizationserver.domain.Client;
-import com.example.authorizationserver.domain.ClientRepository;
-import com.example.authorizationserver.domain.User;
+import com.example.authorizationserver.custom.exception.CustomException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

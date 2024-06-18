@@ -1,26 +1,29 @@
-package com.example.authorizationserver.config;
+package com.example.authorizationserver.utils;
 
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
 import javax.servlet.http.HttpServletRequest;
 
+import com.example.authorizationserver.custom.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
+import org.springframework.security.oauth2.common.DefaultOAuth2RefreshToken;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.OAuth2RefreshToken;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-import com.example.authorizationserver.domain.PrincipalDetails;
-import com.example.authorizationserver.domain.TokenInfoDto;
+import com.example.authorizationserver.custom.CustomUserDetails;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -31,78 +34,86 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-public class JwtTokenProvider {
+public class JwtTokenUtil extends JwtAccessTokenConverter {
 
   private SecretKey secretkey;
   private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30L; // 30분
-  // private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60L * 24 * 7; // 1주
-  // private static final String KEY_ROLE = "role";
+   private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60L * 24 * 7; // 1주
+   private static final String KEY_ROLE = "auth";
   
   // JWT 형식 검사 정규식 패턴
   private static final Pattern JWT_PATTERN = Pattern.compile("^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$");
 
   private final CustomUserDetailsService userDetailsService;
 
-  public JwtTokenProvider(@Value("${jwt.secret}") String key, CustomUserDetailsService userDetailsService){
+  public JwtTokenUtil(@Value("${jwt.secret}") String key, CustomUserDetailsService userDetailsService){
     this.secretkey = Keys.hmacShaKeyFor(key.getBytes());
     this.userDetailsService = userDetailsService;
   }
 
+  @Override
+  public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
+    log.info("JwtAccessTokenConverter 입니다!");
+    if (authentication.getOAuth2Request().getGrantType().equals("password")) {
+      log.info("authentication.getPrincipal() : {}",authentication.getPrincipal().toString());
 
-  public TokenInfoDto generateAccessToken(Authentication authentication) {
-    String accessToken = generateToken(authentication);
-    return TokenInfoDto.builder()
-            .grantType("Bearer")
-            .accessToken(accessToken)
-            .build();
-    //  generateToken(authentication, ACCESS_TOKEN_EXPIRE_TIME);
+      String jwtAccessToken = generateAccessToken(authentication);
+      OAuth2RefreshToken jwtRefreshToken = generateRefreshToken(authentication);
+      ((DefaultOAuth2AccessToken) accessToken).setValue(jwtAccessToken);
+      ((DefaultOAuth2AccessToken) accessToken).setRefreshToken(jwtRefreshToken);
+    }
+//    return super.enhance(accessToken, authentication);
+    return accessToken;
   }
 
-  // 1. refresh token 발급
-//   public void generateRefreshToken(Authentication authentication, String accessToken) {
-//     String refreshToken = generateToken(authentication, REFRESH_TOKEN_EXPIRE_TIME);
-//     tokenService.saveOrUpdate(authentication.getName(), refreshToken, accessToken);
-//   }
+  // access token 생성
+  public String generateAccessToken(Authentication authentication) {
+    Map<String,Object> claims = new HashMap<>();
+
+    CustomUserDetails userDetails = (CustomUserDetails)authentication.getPrincipal();
+    Long userId = userDetails.getUser().getId();
+    String username = userDetails.getUsername();
+
+    String authorities = authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .collect(Collectors.joining(","));
+
+    claims.put("userId", userId);
+    claims.put("username", username);
+    claims.put("auth", authorities);
+
+    return generateToken(authentication.getName(), claims, ACCESS_TOKEN_EXPIRE_TIME);
+  }
+
+  // refresh token 생성
+  public OAuth2RefreshToken generateRefreshToken(OAuth2Authentication authentication) {
+    String token = generateToken(authentication.getName(), new HashMap<>(), REFRESH_TOKEN_EXPIRE_TIME);
+    return new DefaultOAuth2RefreshToken(token);
+  }
 
   /**
    * [JWT 생성]
    * User 정보를 통해 AccessToken 생성
-   * @param Authentication 인증 정보 객체
+   * @param subject 인증 주체 랄까
+   * @param claims claims
+   * @param expiration 만료 시간
    * @return TokenInfo
    */
-  public String generateToken(Authentication authentication){
+  private String generateToken(String subject, Map<String,Object> claims, long expiration ){
     
   log.info("========== generateToken  ==========");
-    // 권한 가져오기
-    String authorities = authentication.getAuthorities().stream()
-                      .map(GrantedAuthority::getAuthority)
-                      .collect(Collectors.joining(","));
-                      // TODO : grant_type 에 따른 응답값을 보고 오류를 수정하시오!!
-
-    log.info("authentication.getPrincipal() : {}",authentication.getPrincipal().toString());
-    PrincipalDetails userDetails = (PrincipalDetails)authentication.getPrincipal();
-    Long userId = userDetails.getUser().getId();
-    String username = userDetails.getUsername();
     
-    // Access Token 생성
+    // Token 생성
     Date now = new Date();
-    Date accessTokenExpiresIn = new Date(now.getTime() + ACCESS_TOKEN_EXPIRE_TIME);
+    Date tokenExpiresDate = new Date(now.getTime() + expiration);
 
     return Jwts.builder()
-              .subject(authentication.getName())
+              .subject(subject)
               .issuedAt(now)
-              .claim("userId", userId)
-              .claim("username", username)
-              .claim("auth", authorities)
-              .claim("isthisright", "right")
-              .expiration(accessTokenExpiresIn)
+              .claims(claims)
+              .expiration(tokenExpiresDate)
               .signWith(secretkey)
               .compact();
-
-    // return TokenInfoDto.builder()
-    //           .grantType("Bearer")
-    //           .accessToken(accessToken)
-    //           .build();
   }
 
   // 3. accessToken 재발급
@@ -122,29 +133,28 @@ public class JwtTokenProvider {
 
   public String resolveToken(HttpServletRequest request) {
     
-  log.info("========== resolveToken  ==========");
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
+      log.info("========== resolveToken  ==========");
+      String bearerToken = request.getHeader("Authorization");
+      if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+          return bearerToken.substring(7);
+      }
+      return null;
     }
 
-public boolean validateToken(String token){
-  log.info("========== validateToken  ==========");
-  if (!StringUtils.hasText(token)) {
+  public boolean validateToken(String token){
+    log.info("========== validateToken  ==========");
+    if (!StringUtils.hasText(token)) {
       return false;
+    }
+    Claims claims = parseClaims(token);
+    log.info("=== validateToken subject :{} ========", claims.getSubject());
+    return claims.getExpiration().after(new Date());
   }
-  if(isJwtToken(token)){}
-  Claims claims = parseClaims(token);
-  log.info("=== validateToken subject :{} ========", claims.getSubject());
-  return claims.getExpiration().after(new Date());
-}
 
-public boolean isJwtToken(String token) {
-  // JWT 형식인지 확인
-  if (!JWT_PATTERN.matcher(token).matches()) {
-      return false;
+  public boolean isJwtToken(String token) {
+    // JWT 형식인지 확인
+    if (!JWT_PATTERN.matcher(token).matches()) {
+        return false;
   }
 
   // 각 부분을 분할
@@ -167,14 +177,14 @@ public boolean isJwtToken(String token) {
   /**
    * [JWT 복호화]
    * JWT를 복화하하여 토큰에 들어있는 정보를 반환
-   * @param String accessToken
+   * @param accessToken token
    * @return Authentication
    */
   public Authentication getAuthentication(String accessToken) {
     log.info("========== getAuthentication  ==========");
     // 토큰 복호화
     Claims claims = parseClaims(accessToken);
-    if(claims.get("auth") == null){
+    if(claims.get(KEY_ROLE) == null){
       throw new RuntimeException("권한 정보가 없는 토큰입니다.");
     }
     // List<SimpleGrantedAuthority> authorities = getAuthorities(claims);
@@ -188,9 +198,8 @@ public boolean isJwtToken(String token) {
 
   /**
    * 권한 추출
-   * @param Claims claims
+   * @param claims 권한 목록
    * @return List<SimpleGrantedAuthority>
-   * @throws Exception
    */
   private List<SimpleGrantedAuthority> getAuthorities(Claims claims){
     return Arrays.stream(claims.get("auth").toString().split(","))
@@ -205,9 +214,8 @@ public boolean isJwtToken(String token) {
   /**
    * [JWT Claim 추출]
    * JWT 토큰 안의 Claim 정보를 추출
-   * @param String accessToken
+   * @param accessToken token
    * @return Claims
-   * @throws Exception 
    */
   private Claims parseClaims(String accessToken){
     log.info("parseClaims : {} " ,accessToken); // Base64(common:1234) = Basic Y29tbW9uOjEyMzQ=

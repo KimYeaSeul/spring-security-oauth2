@@ -1,4 +1,4 @@
-package com.example.authorizationserver.config;
+package com.example.authorizationserver.custom.exception;
 
 import lombok.Builder;
 import lombok.Getter;

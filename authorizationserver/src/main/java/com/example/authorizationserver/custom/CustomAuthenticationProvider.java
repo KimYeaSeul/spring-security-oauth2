@@ -1,4 +1,4 @@
-package com.example.authorizationserver.config;
+package com.example.authorizationserver.custom;
 
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,12 +25,12 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
     String username = authentication.getName();
-        log.debug("DaoAuthenticationProvider  대신!! 유저 정보 : {}", username);
+        log.info("DaoAuthenticationProvider  대신!! 유저 정보 : {}", username);
 
         String password = (String) authentication.getCredentials();
         UserDetails user = userDetailsService.loadUserByUsername(username);
 
-        log.info("어떤 유저가 들어온걸까요 ? {}"+user.toString());
+        log.info("어떤 유저가 들어온걸까요 ? {}", user.toString());
 
         if (user == null || !BCrypt.checkpw( password, user.getPassword())) {
             throw new UsernameNotFoundException("CustomAuthenticationProvider Invalid username or password");
