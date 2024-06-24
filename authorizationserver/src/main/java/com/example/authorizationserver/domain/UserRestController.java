@@ -1,5 +1,8 @@
 package com.example.authorizationserver.domain;
 
+import com.example.authorizationserver.utils.CustomTokenConverter;
+import com.example.authorizationserver.utils.TokenUtil;
+import com.nimbusds.jose.jwk.JWKSet;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +18,15 @@ import com.example.authorizationserver.custom.exception.CustomException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
 public class UserRestController {
   private final UserService userService;
+  private final TokenUtil tokenutil;
 
   // Client 생성 시 보안을 위해 설정
   // TODO : 바꾸세요
@@ -28,6 +35,12 @@ public class UserRestController {
 
   @GetMapping("/oauth/test")
   public String test(){
+    System.out.println("여기 들어옴?");
+    Map<String, Object> map = tokenutil.getClaims();
+    for(Map.Entry<String, Object> entry : map.entrySet()){
+      System.out.println("KEY : "+entry.getKey());
+      System.out.println("VAL : "+entry.getValue());
+    }
     return "Welcome to test page";
   }
 

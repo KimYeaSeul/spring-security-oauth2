@@ -2,8 +2,8 @@ package com.example.authorizationserver.config;
 import static org.springframework.security.config.Customizer.*;
 
 import com.example.authorizationserver.custom.CustomUserDetailsService;
-import com.example.authorizationserver.utils.JwtTokenUtil;
-import org.springframework.boot.autoconfigure.security.oauth2.authserver.OAuth2AuthorizationServerConfiguration;
+import com.example.authorizationserver.utils.CustomTokenConverter;
+import com.example.authorizationserver.utils.TokenUtil;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -12,7 +12,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -27,22 +26,17 @@ import lombok.RequiredArgsConstructor;
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter{
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
-    private final JdbcTokenStore tokenStore;
-    private final JwtTokenUtil jwtTokenUtil;
 
     protected void configure(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
                 .authorizeRequests((authz) -> authz
                                 .antMatchers("/oauth2/client/join").permitAll()
-                                .antMatchers("/.well-known/**").permitAll()
+                                .antMatchers("/oauth2/keys").permitAll()
                                 .anyRequest().authenticated()
                 )
-                // .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션관리정책 : 비활성화
-                // .authenticationProvider(customProvider)
                 .formLogin(login -> login.disable()) // 폼로그인 비활성화
                 .httpBasic(withDefaults()) // 기본 인증 사용
-                .addFilterBefore(new AuthFilter(jwtTokenUtil, tokenStore), UsernamePasswordAuthenticationFilter.class)
                 ;
     }
     
@@ -52,14 +46,15 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter{
     }
 
     @Override
-    @Bean
-    public AuthenticationManager authenticationManagerBean() throws Exception {
-        return super.authenticationManagerBean();
-    }
-    @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth
         .userDetailsService(userDetailsService)
         .passwordEncoder(passwordEncoder); // provider 의 passwordencoder
+    }
+
+    @Override
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
     }
 }

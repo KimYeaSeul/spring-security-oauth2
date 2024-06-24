@@ -1,37 +1,46 @@
 package com.example.authorizationserver.config;
 
-
-import javax.sql.DataSource;
-
+import com.example.authorizationserver.custom.CustomTokenService;
+import com.example.authorizationserver.custom.CustomeNullTokenEnhance;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.jwt.JwtHelper;
+import org.springframework.security.jwt.crypto.sign.RsaSigner;
+import org.springframework.security.jwt.crypto.sign.RsaVerifier;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.util.JsonParser;
+import org.springframework.security.oauth2.common.util.JsonParserFactory;
+import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.approval.ApprovalStore;
+import org.springframework.security.oauth2.provider.approval.JdbcApprovalStore;
 import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
-import lombok.RequiredArgsConstructor;
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+
 
 @Configuration
 @RequiredArgsConstructor
 public class IocConfig {
     
     private final DataSource dataSource;
-    
+
     @Bean
     PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
     }
 
-    // 기본 토큰 서비스 (클라이언트 자격 증명용)
     @Bean
-    DefaultTokenServices jdbcTokenServices() {
-        DefaultTokenServices tokenServices = new DefaultTokenServices();
-        tokenServices.setTokenStore(jdbcTokenStore());
-        return tokenServices;
+    public CustomeNullTokenEnhance nullTokenEnhancer() {
+        return new CustomeNullTokenEnhance();
     }
     
     // 기본 JDBC 토큰 저장소
@@ -44,14 +53,62 @@ public class IocConfig {
     // JWT 토큰 저장
     @Bean
     JwtTokenStore jwtTokenStore() {
-        return new JwtTokenStore(accessTokenConverter());
+        JwtTokenStore tokenStore = new JwtTokenStore(accessTokenConverter());
+        tokenStore.setApprovalStore(approvalStore());
+        return tokenStore;
     }
-    
-    // JWT Access token 변환기
+
     @Bean
-    JwtAccessTokenConverter accessTokenConverter() {
-        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-        converter.setSigningKey("signing-key");
+    public JwtAccessTokenConverter accessTokenConverter() {
+        final RsaSigner signer = new RsaSigner(KeyConfig.getSignerKey());
+
+        JwtAccessTokenConverter converter = new JwtAccessTokenConverter() {
+
+            private JsonParser objectMapper = JsonParserFactory.create();
+
+            @Override
+            protected String encode(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
+                System.out.println("get Token = "+ accessToken.getValue());
+                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
+                    System.out.println("encode 누가먼저냐 22222222 authentication.getPrincipal() : {}" + authentication.getPrincipal().toString());
+                    String content;
+                    try {
+                        content = this.objectMapper.formatMap(getAccessTokenConverter().convertAccessToken(accessToken, authentication));
+                        System.out.println("contetn=    = = = = = " + content);
+                    } catch (Exception ex) {
+                        throw new IllegalStateException("Cannot convert access token to JSON", ex);
+                    }
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("kid", KeyConfig.VERIFIER_KEY_ID);
+                    String token = JwtHelper.encode(content, signer, headers).getEncoded();
+                    return token;
+                }
+                return accessToken.getValue();
+            }
+
+            @Override
+            public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
+                System.out.println("encode 누가먼저냐 11111111 ");
+//                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
+//                    System.out.println("authentication.getPrincipal() : "+authentication.getPrincipal().toString());
+
+//                    String jwtAccessToken = tokenUtil.generateAccessToken(authentication);
+//                    OAuth2RefreshToken jwtRefreshToken = tokenUtil.generateRefreshToken(authentication);
+//                    ((DefaultOAuth2AccessToken) accessToken).setValue(jwtAccessToken);
+//                    ((DefaultOAuth2AccessToken) accessToken).setRefreshToken(jwtRefreshToken);
+//                }
+//    return super.enhance(accessToken, authentication);
+//                return accessToken;
+                return super.enhance(accessToken, authentication);
+            }
+        };
+        converter.setSigner(signer);
+        converter.setVerifier(new RsaVerifier(KeyConfig.getVerifierKey()));
         return converter;
+    }
+
+    @Bean
+    public ApprovalStore approvalStore() {
+        return new JdbcApprovalStore(dataSource);
     }
 }

@@ -1,30 +1,49 @@
 package com.example.authorizationserver.config;
-import java.util.Collections;
 
 import javax.sql.DataSource;
 
 import com.example.authorizationserver.custom.CustomClientDetailsService;
 import com.example.authorizationserver.custom.CustomTokenService;
-import com.example.authorizationserver.utils.JwtTokenUtil;
+import com.example.authorizationserver.custom.CustomeNullTokenEnhance;
+import com.example.authorizationserver.utils.CustomTokenConverter;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.RSAKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.jwt.JwtHelper;
+import org.springframework.security.jwt.crypto.sign.RsaSigner;
+import org.springframework.security.jwt.crypto.sign.RsaVerifier;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.util.JsonParser;
+import org.springframework.security.oauth2.common.util.JsonParserFactory;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
+import org.springframework.security.oauth2.provider.approval.ApprovalStore;
+import org.springframework.security.oauth2.provider.approval.ApprovalStoreUserApprovalHandler;
+import org.springframework.security.oauth2.provider.approval.JdbcApprovalStore;
+import org.springframework.security.oauth2.provider.approval.UserApprovalHandler;
+import org.springframework.security.oauth2.provider.request.DefaultOAuth2RequestFactory;
 import org.springframework.security.oauth2.provider.token.TokenEnhancer;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
 import lombok.RequiredArgsConstructor;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 /*
  * 클라이언트 자격 증명 방식을 사용하여 클라이언트 인증
  */
@@ -35,23 +54,32 @@ import lombok.RequiredArgsConstructor;
 public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdapter {
 
     private final DataSource dataSource;
-    private final JwtTokenUtil jwtTokenUtil;
+    private final ApprovalStore approvalStore;
     private final JwtTokenStore jwtTokenStore;
     private final JdbcTokenStore jdbcTokenStore;
     private final PasswordEncoder passwordEncoder;
-	private final AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
     private final CustomClientDetailsService clientDetailsService;
+    private final JwtAccessTokenConverter customTokenConverter;
 
     @Override
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        CustomeNullTokenEnhance nullTokenEnhancer = new CustomeNullTokenEnhance();
+        CustomTokenService tokenServices = new CustomTokenService(jwtTokenStore, jdbcTokenStore, nullTokenEnhancer, customTokenConverter);
 
-        CustomTokenService tokenServices = new CustomTokenService(jdbcTokenStore, jwtTokenStore);
-
-        tokenServices.setTokenEnhancer(jwtTokenUtil);
-        
         endpoints
             .authenticationManager(authenticationManager)
+            .userApprovalHandler(userApprovalHandler())
             .tokenServices(tokenServices);
+    }
+
+    @Bean
+    public UserApprovalHandler userApprovalHandler() {
+        ApprovalStoreUserApprovalHandler userApprovalHandler = new ApprovalStoreUserApprovalHandler();
+        userApprovalHandler.setApprovalStore(approvalStore);
+        userApprovalHandler.setClientDetailsService(this.clientDetailsService);
+        userApprovalHandler.setRequestFactory(new DefaultOAuth2RequestFactory(this.clientDetailsService));
+        return userApprovalHandler;
     }
 
     @Override
@@ -66,5 +94,16 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
         clients.withClientDetails(clientDetailsService);
         clients.jdbc(dataSource).passwordEncoder(passwordEncoder);
+    }
+
+
+
+    @Bean
+    public JWKSet jwkSet() {
+        RSAKey.Builder builder = new RSAKey.Builder(KeyConfig.getVerifierKey())
+                .keyUse(KeyUse.SIGNATURE)
+                .algorithm(JWSAlgorithm.RS256)
+                .keyID(KeyConfig.VERIFIER_KEY_ID);
+        return new JWKSet(builder.build());
     }
 }
