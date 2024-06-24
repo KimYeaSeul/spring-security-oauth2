@@ -1,5 +1,6 @@
 package com.example.authorizationserver.config;
 
+import com.example.authorizationserver.custom.CustomJdbcTokenStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -40,7 +41,7 @@ public class IocConfig {
     @Primary
     @Bean
     JdbcTokenStore jdbcTokenStore() {
-        return new JdbcTokenStore(dataSource);        
+        return new CustomJdbcTokenStore(dataSource);
     }
 
     // JWT 토큰 저장
