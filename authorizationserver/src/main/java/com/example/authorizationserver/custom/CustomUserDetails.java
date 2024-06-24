@@ -24,7 +24,6 @@ public class CustomUserDetails implements UserDetails{
         collection.add(new GrantedAuthority() {
             @Override
             public String getAuthority() {
-              log.info("권환 이리 와보슈 "+ user.getRole());
                 return user.getRole();
             }
         });
