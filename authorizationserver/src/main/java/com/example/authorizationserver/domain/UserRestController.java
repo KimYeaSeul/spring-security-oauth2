@@ -1,8 +1,6 @@
 package com.example.authorizationserver.domain;
 
-import com.example.authorizationserver.utils.CustomTokenConverter;
 import com.example.authorizationserver.utils.TokenUtil;
-import com.nimbusds.jose.jwk.JWKSet;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

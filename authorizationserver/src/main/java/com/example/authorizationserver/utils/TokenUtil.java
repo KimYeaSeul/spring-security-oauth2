@@ -57,21 +57,6 @@ public class TokenUtil {
     private static final Pattern JWT_PATTERN = Pattern.compile("^[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+$");
     private final CustomUserDetailsService userDetailsService;
 
-//      public TokenUtil(@Value("${jwt.secret}") String key,CustomUserDetailsService userDetailsService) throws Exception{
-//        this.secretkey = Keys.hmacShaKeyFor(key.getBytes());
-//        this.userDetailsService = userDetailsService;
-//
-//        String path = "/home/kys912/development/spring-security-oauth2/authorizationserver/src/main/resources";
-//          String privateKeyContent = new String(Files.readAllBytes(Paths.get(path, "private_key.pem")));
-//          privateKeyContent = privateKeyContent
-//                  .replace("-----BEGIN PRIVATE KEY-----", "")
-//                  .replace("-----END PRIVATE KEY-----", "")
-//                  .replaceAll("\\s", "");
-//
-//          PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKeyContent));
-//          KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-//          this.privateKey = keyFactory.generatePrivate(keySpec);
-//      }
 
     // access token 생성
     public String generateAccessToken(Authentication authentication) {

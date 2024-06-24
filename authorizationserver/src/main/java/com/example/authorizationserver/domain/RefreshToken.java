@@ -27,8 +27,4 @@ public class RefreshToken implements Serializable {
   public String token;
   @Column(name="authentication")
   public String auth;
-
-  public void updateAccessToken(String accessToken) {
-    this.token = accessToken;
-  }
 }

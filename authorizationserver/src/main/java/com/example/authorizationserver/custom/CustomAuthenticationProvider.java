@@ -22,9 +22,11 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
 
   private final CustomUserDetailsService userDetailsService;
 
+  // ResourceOwnerPasswordTokenGranter -> CustomAuthenticationProvider -> CustomUserDetailsService -> CustomAuthenticationProvider
+  // -> CustomTokenService -> accessTokenConverter() -> CustomUserDetails -> accessTokenConverter()
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-    String username = authentication.getName();
+        String username = authentication.getName();
         log.info("DaoAuthenticationProvider  대신!! 유저 정보 : {}", username);
 
         String password = (String) authentication.getCredentials();

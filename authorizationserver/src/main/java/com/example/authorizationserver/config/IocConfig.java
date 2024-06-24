@@ -1,8 +1,7 @@
 package com.example.authorizationserver.config;
 
-import com.example.authorizationserver.custom.CustomTokenService;
-import com.example.authorizationserver.custom.CustomeNullTokenEnhance;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -17,7 +16,6 @@ import org.springframework.security.oauth2.common.util.JsonParserFactory;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.security.oauth2.provider.approval.ApprovalStore;
 import org.springframework.security.oauth2.provider.approval.JdbcApprovalStore;
-import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
@@ -26,7 +24,7 @@ import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
 
-
+@Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class IocConfig {
@@ -37,15 +35,10 @@ public class IocConfig {
     PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
     }
-
-    @Bean
-    public CustomeNullTokenEnhance nullTokenEnhancer() {
-        return new CustomeNullTokenEnhance();
-    }
     
     // 기본 JDBC 토큰 저장소
-    @Bean
     @Primary
+    @Bean
     JdbcTokenStore jdbcTokenStore() {
         return new JdbcTokenStore(dataSource);        
     }
@@ -63,18 +56,15 @@ public class IocConfig {
         final RsaSigner signer = new RsaSigner(KeyConfig.getSignerKey());
 
         JwtAccessTokenConverter converter = new JwtAccessTokenConverter() {
-
             private JsonParser objectMapper = JsonParserFactory.create();
 
             @Override
             protected String encode(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
-                System.out.println("get Token = "+ accessToken.getValue());
-                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
-                    System.out.println("encode 누가먼저냐 22222222 authentication.getPrincipal() : {}" + authentication.getPrincipal().toString());
+               log.info("get Token = {}", accessToken.getValue());
                     String content;
                     try {
                         content = this.objectMapper.formatMap(getAccessTokenConverter().convertAccessToken(accessToken, authentication));
-                        System.out.println("contetn=    = = = = = " + content);
+                        log.info("contetn=    {} ", content);
                     } catch (Exception ex) {
                         throw new IllegalStateException("Cannot convert access token to JSON", ex);
                     }
@@ -82,25 +72,23 @@ public class IocConfig {
                     headers.put("kid", KeyConfig.VERIFIER_KEY_ID);
                     String token = JwtHelper.encode(content, signer, headers).getEncoded();
                     return token;
-                }
-                return accessToken.getValue();
             }
 
-            @Override
-            public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
-                System.out.println("encode 누가먼저냐 11111111 ");
-//                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
-//                    System.out.println("authentication.getPrincipal() : "+authentication.getPrincipal().toString());
-
-//                    String jwtAccessToken = tokenUtil.generateAccessToken(authentication);
-//                    OAuth2RefreshToken jwtRefreshToken = tokenUtil.generateRefreshToken(authentication);
-//                    ((DefaultOAuth2AccessToken) accessToken).setValue(jwtAccessToken);
-//                    ((DefaultOAuth2AccessToken) accessToken).setRefreshToken(jwtRefreshToken);
-//                }
-//    return super.enhance(accessToken, authentication);
-//                return accessToken;
-                return super.enhance(accessToken, authentication);
-            }
+//            @Override
+//            public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
+//                System.out.println("encode 누가먼저냐 11111111 ");
+////                if (authentication.getOAuth2Request().getGrantType().equals("password")) {
+////                    System.out.println("authentication.getPrincipal() : "+authentication.getPrincipal().toString());
+//
+////                    String jwtAccessToken = tokenUtil.generateAccessToken(authentication);
+////                    OAuth2RefreshToken jwtRefreshToken = tokenUtil.generateRefreshToken(authentication);
+////                    ((DefaultOAuth2AccessToken) accessToken).setValue(jwtAccessToken);
+////                    ((DefaultOAuth2AccessToken) accessToken).setRefreshToken(jwtRefreshToken);
+////                }
+////    return super.enhance(accessToken, authentication);
+////                return accessToken;
+//                return super.enhance(accessToken, authentication);
+//            }
         };
         converter.setSigner(signer);
         converter.setVerifier(new RsaVerifier(KeyConfig.getVerifierKey()));
