@@ -1,6 +1,7 @@
 package com.example.authorizationserver.domain;
 
 import com.example.authorizationserver.utils.TokenUtil;
+import com.nimbusds.jose.jwk.JWKSet;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,9 +33,15 @@ public class UserRestController {
   @Value("${client.join.key}")
   private String secretKey;
 
+  private final JWKSet jwkSet;
+
+  @GetMapping(value = "/oauth2/keys", produces = "application/json; charset=UTF-8")
+  public String keys() {
+    return this.jwkSet.toString();
+  }
+
   @GetMapping("/oauth/test")
   public String test(){
-    System.out.println("여기 들어옴?");
     Map<String, Object> map = tokenutil.getClaims();
     for(Map.Entry<String, Object> entry : map.entrySet()){
       System.out.println("KEY : "+entry.getKey());

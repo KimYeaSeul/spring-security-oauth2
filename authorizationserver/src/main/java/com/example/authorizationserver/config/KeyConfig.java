@@ -1,31 +1,36 @@
 package com.example.authorizationserver.config;
 
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.security.crypto.codec.Base64;
-import org.springframework.security.crypto.keygen.KeyGenerators;
-import org.springframework.security.oauth2.provider.token.store.KeyStoreKeyFactory;
 
-import java.security.KeyPair;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
+import java.io.InputStream;
+import java.security.*;
+import java.security.cert.Certificate;
+import java.util.Base64;
 
 public class KeyConfig {
+
+    private static final String KEY_STORE_TYPE = "JKS";
     private static final String KEY_STORE_FILE = "jwt-test.jks";
     private static final String KEY_STORE_PASSWORD = "password";
     private static final String KEY_ALIAS = "auth";
-    private static KeyStoreKeyFactory KEY_STORE_KEY_FACTORY = new KeyStoreKeyFactory(
-            new ClassPathResource(KEY_STORE_FILE), KEY_STORE_PASSWORD.toCharArray());
-    public static final String VERIFIER_KEY_ID = new String(Base64.encode(KeyGenerators.secureRandom(32).generateKey()));
+    public static final String VERIFIER_KEY_ID = generateSecretKey();
 
-    static RSAPublicKey getVerifierKey() {
-        return (RSAPublicKey) getKeyPair().getPublic();
+    public static String generateSecretKey() {
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] key = new byte[32]; // 32 bytes = 256 bits
+        secureRandom.nextBytes(key);
+        return Base64.getEncoder().encodeToString(key);
     }
 
-    public static RSAPrivateKey getSignerKey() {
-        return (RSAPrivateKey) getKeyPair().getPrivate();
-    }
+    public static KeyPair getKeyPair() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(KEY_STORE_TYPE);
+        InputStream resourceAsStream = new ClassPathResource(KEY_STORE_FILE).getInputStream();
+        keyStore.load(resourceAsStream, KEY_STORE_PASSWORD.toCharArray());
 
-    private static KeyPair getKeyPair() {
-        return KEY_STORE_KEY_FACTORY.getKeyPair(KEY_ALIAS);
+        PrivateKey privateKey = (PrivateKey) keyStore.getKey(KEY_ALIAS, KEY_STORE_PASSWORD.toCharArray());
+        Certificate certificate = keyStore.getCertificate(KEY_ALIAS);
+        PublicKey publicKey = certificate.getPublicKey();
+
+        return new KeyPair(publicKey, privateKey);
     }
 }

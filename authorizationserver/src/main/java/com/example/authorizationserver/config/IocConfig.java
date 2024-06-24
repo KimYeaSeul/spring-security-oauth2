@@ -1,5 +1,9 @@
 package com.example.authorizationserver.config;
-
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.Payload;
+import com.nimbusds.jose.crypto.RSASSASigner;
 import com.example.authorizationserver.custom.CustomJdbcTokenStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,9 +12,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.jwt.JwtHelper;
-import org.springframework.security.jwt.crypto.sign.RsaSigner;
-import org.springframework.security.jwt.crypto.sign.RsaVerifier;
 import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.util.JsonParser;
@@ -23,6 +24,7 @@ import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenCo
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
 import javax.sql.DataSource;
+import java.security.KeyPair;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -57,7 +59,6 @@ public class IocConfig {
 
     @Bean
     public JwtAccessTokenConverter accessTokenConverter() {
-        final RsaSigner signer = new RsaSigner(KeyConfig.getSignerKey());
 
         JwtAccessTokenConverter converter = new JwtAccessTokenConverter() {
             private JsonParser objectMapper = JsonParserFactory.create();
@@ -74,27 +75,41 @@ public class IocConfig {
                 }
                 Map<String, String> headers = new HashMap<>();
                 headers.put("kid", KeyConfig.VERIFIER_KEY_ID);
-                String token = JwtHelper.encode(content, signer, headers).getEncoded();
-                return token;
+                try {
+                    JWSHeader jwsHeader = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                            .keyID(KeyConfig.VERIFIER_KEY_ID)
+                            .build();
+
+                    JWSObject jwsObject = new JWSObject(jwsHeader, new Payload(content));
+                    jwsObject.sign(new RSASSASigner(KeyConfig.getKeyPair().getPrivate()));
+
+                    return jwsObject.serialize();
+                } catch (Exception e) {
+                    throw new IllegalStateException("Cannot sign the token", e);
+                }
             }
 
             @Override
             public OAuth2AccessToken enhance(OAuth2AccessToken accessToken, OAuth2Authentication authentication) {
 
-                OAuth2AccessToken parents = super.enhance(accessToken, authentication);
+                OAuth2AccessToken enhancedToken  = super.enhance(accessToken, authentication);
 
-                DefaultOAuth2AccessToken result = new DefaultOAuth2AccessToken(parents);
-                Map<String, Object> info = new LinkedHashMap<>(parents.getAdditionalInformation());
+                DefaultOAuth2AccessToken result = new DefaultOAuth2AccessToken(enhancedToken);
+                Map<String, Object> addinfo = new LinkedHashMap<>(enhancedToken.getAdditionalInformation());
                 // 추가 info 여기에 작성!!
 //                info.put("asdf","asdf");
-                result.setAdditionalInformation(info);
+                result.setAdditionalInformation(addinfo);
                 result.setValue(this.encode(result, authentication));
 
                 return result;
             }
         };
-        converter.setSigner(signer);
-        converter.setVerifier(new RsaVerifier(KeyConfig.getVerifierKey()));
+        try {
+            KeyPair keyPair = KeyConfig.getKeyPair();
+            converter.setKeyPair(keyPair);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         return converter;
     }
 

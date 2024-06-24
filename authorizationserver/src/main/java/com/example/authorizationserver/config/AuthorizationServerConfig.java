@@ -17,7 +17,6 @@ import org.springframework.security.oauth2.config.annotation.configurers.ClientD
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
-import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.approval.ApprovalStore;
 import org.springframework.security.oauth2.provider.approval.ApprovalStoreUserApprovalHandler;
 import org.springframework.security.oauth2.provider.approval.UserApprovalHandler;
@@ -26,7 +25,10 @@ import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
+import java.security.interfaces.RSAPublicKey;
 import lombok.RequiredArgsConstructor;
+
+import java.security.KeyPair;
 
 
 /*
@@ -67,22 +69,15 @@ public class AuthorizationServerConfig extends AuthorizationServerConfigurerAdap
         return userApprovalHandler;
     }
 
-//    @Override
-//    public void configure(AuthorizationServerSecurityConfigurer security) {
-//        // 토큰유효성(/token/check_token) 접근을 위해 설정
-//        security
-//                .checkTokenAccess("isAuthenticated()")
-//                .tokenKeyAccess("permitAll()");
-//    }
-
     @Override
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
         clients.jdbc(dataSource).passwordEncoder(passwordEncoder);
     }
 
     @Bean
-    public JWKSet jwkSet() {
-        RSAKey.Builder builder = new RSAKey.Builder(KeyConfig.getVerifierKey())
+    public JWKSet jwkSet() throws Exception {
+        KeyPair keyPair = KeyConfig.getKeyPair();
+        RSAKey.Builder builder = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
                 .keyUse(KeyUse.SIGNATURE)
                 .algorithm(JWSAlgorithm.RS256)
                 .keyID(KeyConfig.VERIFIER_KEY_ID);
